@@ -1,3 +1,6 @@
+helpful url:
+
+https://devblogs.nvidia.com/how-optimize-data-transfers-cuda-cc/
 
 Device: Tesla P100-PCIE-16GB
 Transfer size (MB): 1600
