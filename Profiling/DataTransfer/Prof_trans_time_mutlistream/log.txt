@@ -1,0 +1,21 @@
+Begining with Stream Number 2, ONLY memcpy
+Device : Tesla P100-PCIE-16GB
+Time for sequential transfer and execute (ms): 131.118439
+Time for asynchronous V1 transfer and execute (ms): 104.277184
+Time for asynchronous V2 transfer and execute (ms): 104.249535
+
+
+Begining with Stream Number 4, ONLY memcpy
+Device : Tesla P100-PCIE-16GB
+Time for sequential transfer and execute (ms): 262.028809
+Time for asynchronous V1 transfer and execute (ms): 181.652069
+Time for asynchronous V2 transfer and execute (ms): 181.544678
+
+
+Begining with Stream Number 8, ONLY memcpy
+Device : Tesla P100-PCIE-16GB
+Time for sequential transfer and execute (ms): 262.234741
+Time for asynchronous V1 transfer and execute (ms): 167.948547
+Time for asynchronous V2 transfer and execute (ms): 167.886719
+
+

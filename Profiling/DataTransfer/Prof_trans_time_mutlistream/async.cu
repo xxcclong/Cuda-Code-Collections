@@ -62,12 +62,13 @@ float maxError(float *a, int n)
 
 int main(int argc, char **argv)
 {
-  const int blockSize = 256, nStreams = 4;
-  const int n = 400 * 1024 * blockSize * nStreams;
+  const int blockSize = 256, nStreams = 8;
+  const int n = 200 * 1024 * blockSize * nStreams;
   const int streamSize = n / nStreams;
   const int streamBytes = streamSize * sizeof(float);
   const int bytes = n * sizeof(float);
    
+  printf("Begining with Stream Number %d, ONLY memcpy\n", nStreams);
   int devId = 0;
   if (argc > 1) devId = atoi(argv[1]);
 
@@ -96,7 +97,7 @@ int main(int argc, char **argv)
   memset(a, 0, bytes);
   checkCuda( cudaEventRecord(startEvent,0) );
   checkCuda( cudaMemcpy(d_a, a, bytes, cudaMemcpyHostToDevice) );
-  kernel<<<n/blockSize, blockSize>>>(d_a, 0);
+  // kernel<<<n/blockSize, blockSize>>>(d_a, 0);
   checkCuda( cudaMemcpy(a, d_a, bytes, cudaMemcpyDeviceToHost) );
   checkCuda( cudaEventRecord(stopEvent, 0) );
   checkCuda( cudaEventSynchronize(stopEvent) );
@@ -112,7 +113,7 @@ int main(int argc, char **argv)
     checkCuda( cudaMemcpyAsync(&d_a[offset], &a[offset], 
                                streamBytes, cudaMemcpyHostToDevice, 
                                stream[i]) );
-    kernel<<<streamSize/blockSize, blockSize, 0, stream[i]>>>(d_a, offset);
+    // kernel<<<streamSize/blockSize, blockSize, 0, stream[i]>>>(d_a, offset);
     checkCuda( cudaMemcpyAsync(&a[offset], &d_a[offset], 
                                streamBytes, cudaMemcpyDeviceToHost,
                                stream[i]) );
@@ -134,11 +135,11 @@ int main(int argc, char **argv)
                                streamBytes, cudaMemcpyHostToDevice,
                                stream[i]) );
   }
-  for (int i = 0; i < nStreams; ++i)
-  {
-    int offset = i * streamSize;
-    kernel<<<streamSize/blockSize, blockSize, 0, stream[i]>>>(d_a, offset);
-  }
+  //for (int i = 0; i < nStreams; ++i)
+  //{
+  //  int offset = i * streamSize;
+  //  kernel<<<streamSize/blockSize, blockSize, 0, stream[i]>>>(d_a, offset);
+  //}
   for (int i = 0; i < nStreams; ++i)
   {
     int offset = i * streamSize;
