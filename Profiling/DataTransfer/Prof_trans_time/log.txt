@@ -1,0 +1,22 @@
+
+Device: Tesla P100-PCIE-16GB
+Transfer size (MB): 1600
+
+Pageable transfers
+  Host to Device bandwidth (GB/s): 9.376761
+  Device to Host bandwidth (GB/s): 9.728834
+
+Pinned transfers
+  Host to Device bandwidth (GB/s): 12.461830
+  Device to Host bandwidth (GB/s): 13.191845
+
+Device: Tesla P100-PCIE-16GB
+Transfer size (MB): 16
+
+Pageable transfers
+  Host to Device bandwidth (GB/s): 9.136166
+  Device to Host bandwidth (GB/s): 5.470793
+
+Pinned transfers
+  Host to Device bandwidth (GB/s): 11.165517
+  Device to Host bandwidth (GB/s): 12.430366
