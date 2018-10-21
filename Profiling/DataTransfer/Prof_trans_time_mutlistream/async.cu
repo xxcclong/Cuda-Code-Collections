@@ -94,7 +94,9 @@ int main(int argc, char **argv)
     checkCuda( cudaStreamCreate(&stream[i]) );
   
   // baseline case - sequential transfer and execute
-  memset(a, 0, bytes);
+  //memset(a, -1, bytes);
+  for(int i = 0;i<n;++i)
+    a[i] = 5.5;
   checkCuda( cudaEventRecord(startEvent,0) );
   checkCuda( cudaMemcpy(d_a, a, bytes, cudaMemcpyHostToDevice) );
   // kernel<<<n/blockSize, blockSize>>>(d_a, 0);
@@ -106,7 +108,8 @@ int main(int argc, char **argv)
   printf("  max error: %e\n", maxError(a, n));
 
   // asynchronous version 1: loop over {copy, kernel, copy}
-  memset(a, 0, bytes);
+  for(int i = 0;i<n;++i)
+    a[i] = 5.5;
   checkCuda( cudaEventRecord(startEvent,0) );
   for (int i = 0; i < nStreams; ++i) {
     int offset = i * streamSize;
@@ -126,7 +129,8 @@ int main(int argc, char **argv)
 
   // asynchronous version 2: 
   // loop over copy, loop over kernel, loop over copy
-  memset(a, 0, bytes);
+  for(int i = 0;i<n;++i)
+    a[i] = 5.5;
   checkCuda( cudaEventRecord(startEvent,0) );
   for (int i = 0; i < nStreams; ++i)
   {

@@ -27,45 +27,68 @@ void add(int n, float *x, float *y)
 
 int main(void)
 {
-  int N = 1<<20;
-  float *x, *y;
+    int N = 1<<20;
+    float *x, *y;
 
-  // Allocate Unified Memory – accessible from CPU or GPU
-  cudaMallocManaged(&x, N*sizeof(float));
-  cudaMallocManaged(&y, N*sizeof(float));
+    // Allocate Unified Memory – accessible from CPU or GPU
+    cudaMallocManaged(&x, N*sizeof(float));
+    cudaMallocManaged(&y, N*sizeof(float));
 
-  // initialize x and y arrays on the host
-  for (int i = 0; i < N; i++) {
-    x[i] = 1.0f;
-    y[i] = 2.0f;
-  }
+    // initialize x and y arrays on the host
+    cudaEvent_t startEvent, endEvent;
+    checkCuda( cudaEventCreate(&startEvent));
+    checkCuda( cudaEventCreate(&endEvent));
+    checkCuda( cudaEventRecord(startEvent, 0));
 
-  cudaDeviceSynchronize();
-  // Run kernel on 1M elements on the GPU
-  cudaEvent_t startEvent, endEvent;
-  checkCuda( cudaEventCreate(&startEvent));
-  checkCuda( cudaEventCreate(&endEvent));
-  checkCuda( cudaEventRecord(startEvent, 0));
+    for (int i = 0; i < N; i++) {
+        x[i] = 1.0f;
+        y[i] = 2.0f;
+    }
+    checkCuda(cudaEventRecord(endEvent, 0));
+    checkCuda(cudaEventSynchronize(endEvent));
+    float ti;
+    checkCuda(cudaEventElapsedTime(&ti, startEvent, endEvent));
+    printf("managed mem assignment used time %f\n", ti);
 
-  add<<<1, 256>>>(N, x, y);
+    float* cpuX, cpuY;
+    cpuX = (float*)(malloc(N* sizeof(float)));
+    cpuY = (float*)(malloc(N* sizeof(float)));
 
-  checkCuda(cudaEventRecord(endEvent, 0));
-  checkCuda(cudaEventSynchronize(endEvent));
-  float ti;
-  checkCuda(cudaEventElapsedTime(&ti, startEvent, endEvent));
-  printf("used time %f\n", ti);
-  // Wait for GPU to finish before accessing on host
-  cudaDeviceSynchronize();
+    checkCuda( cudaEventRecord(startEvent, 0));
 
-  // Check for errors (all values should be 3.0f)
-  float maxError = 0.0f;
-  for (int i = 0; i < N; i++)
-    maxError = fmax(maxError, fabs(y[i]-3.0f));
-  std::cout << "Max error: " << maxError << std::endl;
+    for (int i = 0; i < N; i++) {
+        cpuX[i] = 1.0f;
+        cpuY[i] = 2.0f;
+    }
+    checkCuda(cudaEventRecord(endEvent, 0));
+    checkCuda(cudaEventSynchronize(endEvent));
+    checkCuda(cudaEventElapsedTime(&ti, startEvent, endEvent));
+    printf("normal cpu mem assignment used time %f\n", ti);
+    // ratio 1.310097555
+    // ratio 1.2364453632
+    // ratio 1.2463768116
 
-  // Free memory
-  cudaFree(x);
-  cudaFree(y);
+    // Run kernel on 1M elements on the GPU
+    checkCuda( cudaEventRecord(startEvent, 0));
+
+    add<<<1, 256>>>(N, x, y);
+
+    checkCuda(cudaEventRecord(endEvent, 0));
+    checkCuda(cudaEventSynchronize(endEvent));
+    checkCuda(cudaEventElapsedTime(&ti, startEvent, endEvent));
+    printf("used time %f\n", ti);
+    // Wait for GPU to finish before accessing on host
+    cudaDeviceSynchronize();
+
+    // Check for errors (all values should be 3.0f)
+    float maxError = 0.0f;
+    for (int i = 0; i < N; i++)
+        maxError = fmax(maxError, fabs(y[i]-3.0f));
+    std::cout << "Max error: " << maxError << std::endl;
+
+    // Free memory
+    cudaFree(x);
+    cudaFree(y);
   
   return 0;
 }

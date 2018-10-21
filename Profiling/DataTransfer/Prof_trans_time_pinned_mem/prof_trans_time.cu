@@ -63,7 +63,7 @@ void profileCopies(float        *h_a,
 
 int main()
 {
-  unsigned int nElements = 4*1024*1024;
+  unsigned int nElements = 4*1024*1024*32;
   const unsigned int bytes = nElements * sizeof(float);
 
   // host arrays
