@@ -14,7 +14,7 @@
 /* Matrix size */
 #define N (256 * 4)
 //#define N (256*8)
-#define GPUS (2)
+#define GPUS (4)
 #define ITERATIONS (200)
 //#define ITERATIONS (10)
 #define COMPUTE_TIME 5
@@ -48,9 +48,9 @@ size_t timestamp() {
 }
 
 void init_nccl() {
-  comms.reset(new ncclComm_t[2]);
-  nccl_streams.reset(new cudaStream_t[2]);
-  blas_streams.reset(new cudaStream_t[2]);
+  comms.reset(new ncclComm_t[GPUS]);
+  nccl_streams.reset(new cudaStream_t[GPUS]);
+  blas_streams.reset(new cudaStream_t[GPUS]);
   ncclUniqueId nccl_id;
   ncclGetUniqueId(&nccl_id);
   ncclGroupStart();
