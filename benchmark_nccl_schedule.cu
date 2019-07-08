@@ -12,11 +12,11 @@
 #include <nccl.h>
 
 /* Matrix size */
-#define N (256 * 4)
+#define N (32 * 4)
 #define GPUS (4)
 #define ITERATIONS (200)
-#define COMPUTE_TIME 5
-#define COMM_TIME 2
+#define COMPUTE_TIME 20
+#define COMM_TIME 1
 //float *h_C_ref;
 float *d_A[GPUS];
 float *d_B[GPUS];
