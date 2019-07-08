@@ -8,7 +8,7 @@
 
 /* Includes, cuda */
 #include <cublas_v2.h>
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 #include <nccl.h>
 
 /* Matrix size */
@@ -168,9 +168,9 @@ int worker(int dev, int nccl_mode) {
 
   /* Performs operation using cublas */
   auto &nccl_stream = *(nccl_streams.get() + dev);
-  cudaEvent_t start_event, end_event;
+  cudaEvent_t start_event, stop_event;
   cudaEventCreate(&start_event);
-  cudaEventCreate(&end_event);
+  cudaEventCreate(&stop_event);
 
   std::vector<cudaEvent_t> nccl_events;
   nccl_events.reserve(ITERATIONS);
@@ -216,11 +216,11 @@ int worker(int dev, int nccl_mode) {
     //cudaStreamSynchronize(nccl_stream);
     //cudaStreamSynchronize(blas_stream);
   }
-  cudaEventRecord(end_event, 0);
+  cudaEventRecord(stop_event, 0);
   cudaEventSynchronize(stop_event);
   float event_overall_time = 0;
-  cudaEventElapsedTime(&event_verall_time, start_event, stop_event);
-  fprintf(stderr, "device: [%d], %d iterations spent: cputime [%f ms] eventtime [%f ms] \n", dev, ITERATIONS, (timestamp()-start)/1000.0, event_overall_time);
+  cudaEventElapsedTime(&event_overall_time, start_event, stop_event);
+  fprintf(stderr, "device: [%d], %d iterations spent: cputime [%.2f ms] eventtime [%.2f ms] \n", dev, ITERATIONS, (timestamp()-start)/1000.0, event_overall_time);
   //fprintf(stderr, "device: [%d], %d iterations spent: [%d ms]\n", dev, ITERATIONS, (timestamp()-start)/1000);
 
 
@@ -261,7 +261,7 @@ int main(int argc, char** argv) {
   for (auto &t : threads) {
     t.join();
   }
-  fprintf(stderr, "nccl mode: [%d], spent: [%d ms]\n", nccl_mode, (timestamp() - start)/1000);
+  fprintf(stderr, "nccl mode: [%d], spent: [%.2f ms]\n", nccl_mode, (timestamp() - start)/1000.0);
 
 
   for (int i = 0; i < GPUS; ++i) {
