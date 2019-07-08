@@ -13,10 +13,8 @@
 
 /* Matrix size */
 #define N (256 * 4)
-//#define N (256*8)
 #define GPUS (4)
 #define ITERATIONS (200)
-//#define ITERATIONS (10)
 #define COMPUTE_TIME 5
 #define COMM_TIME 2
 //float *h_C_ref;
@@ -170,9 +168,14 @@ int worker(int dev, int nccl_mode) {
 
   /* Performs operation using cublas */
   auto &nccl_stream = *(nccl_streams.get() + dev);
+  cudaEvent_t start_event, end_event;
+  cudaEventCreate(&start_event);
+  cudaEventCreate(&end_event);
+
   std::vector<cudaEvent_t> nccl_events;
   nccl_events.reserve(ITERATIONS);
   size_t start = timestamp();
+  cudaEventRecord(start_event, 0); 
   if (nccl_mode == NCCL_MODE::ONE_STREAM) {
     for (size_t i = 0; i <ITERATIONS; ++i) {
       for(int temp = 0; temp < COMPUTE_TIME; ++temp)
@@ -181,7 +184,7 @@ int worker(int dev, int nccl_mode) {
       for(int temp = 0; temp < COMM_TIME; ++temp)
       ncclAllReduce(d_D[dev], d_D[dev], n2, ncclFloat, ncclSum, *(comms.get() + dev), blas_stream);
     }
-    cudaStreamSynchronize(blas_stream);
+    //cudaStreamSynchronize(blas_stream);
   } else {
     // nccl_mode is ASYNC_NCCL or SYNC_NCCL
     for (size_t i = 0; i < ITERATIONS; ++i) {
@@ -210,10 +213,15 @@ int worker(int dev, int nccl_mode) {
           
       
     }
-    cudaStreamSynchronize(nccl_stream);
-    cudaStreamSynchronize(blas_stream);
+    //cudaStreamSynchronize(nccl_stream);
+    //cudaStreamSynchronize(blas_stream);
   }
-  fprintf(stderr, "device: [%d], %d iterations spent: [%d ms]\n", dev, ITERATIONS, (timestamp()-start)/1000);
+  cudaEventRecord(end_event, 0);
+  cudaEventSynchronize(stop_event);
+  float event_overall_time = 0;
+  cudaEventElapsedTime(&event_verall_time, start_event, stop_event);
+  fprintf(stderr, "device: [%d], %d iterations spent: cputime [%f ms] eventtime [%f ms] \n", dev, ITERATIONS, (timestamp()-start)/1000.0, event_overall_time);
+  //fprintf(stderr, "device: [%d], %d iterations spent: [%d ms]\n", dev, ITERATIONS, (timestamp()-start)/1000);
 
 
   if (status != CUBLAS_STATUS_SUCCESS) {
