@@ -194,15 +194,15 @@ inline void print_compute_func()
 }
 
 
-inline void compute_func(int dev, cublasHandle_t* handle)
+inline void compute_func(int dev, cublasHandle_t* handle, cudaStream_t* s)
 {
 #ifndef TEST_ALGO
     cublasSgemm(*handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
                              N, d_B[dev], N, &beta, d_C[dev], N);
 #elif TEST_ALGO == 1 
-    eleSqrt<<<cuda_grid, cuda_threads>>>(d_A[dev], d_C[dev]);
+    eleSqrt<<<cuda_grid, cuda_threads, 0, *s>>>(d_A[dev], d_C[dev]);
 #elif TEST_ALGO == 2 
-    eleMul<<<cuda_grid, cuda_threads>>>(d_A[dev], d_B[dev], d_C[dev]);
+    eleMul<<<cuda_grid, cuda_threads, 0, *s>>>(d_A[dev], d_B[dev], d_C[dev]);
 #else
     cublasSgemm(*handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
                              N, d_B[dev], N, &beta, d_C[dev], N);
@@ -235,7 +235,7 @@ int prerun(int dev = 0) {
     // run computation
     for (int i = 0; i < PRERUN_ITER; ++i) {
         cudaEventRecord(start_event, 0);
-        compute_func(dev, &handle);
+        compute_func(dev, &handle, &blas_stream);
         cudaEventRecord(stop_event, 0);
         cudaEventSynchronize(stop_event);
         cudaEventElapsedTime(&temp_time, start_event, stop_event);
@@ -303,7 +303,7 @@ int worker(int dev, int nccl_mode) {
     if (nccl_mode == NCCL_MODE::ONE_STREAM) {
         for (size_t i = 0; i < ITERATIONS; ++i) {
             for (int temp = 0; temp < COMPUTE_TIME; ++temp)
-                compute_func(dev, &handle);
+                compute_func(dev, &handle, &blas_stream);
             for (int temp = 0; temp < COMM_TIME; ++temp)
                 ncclAllReduce(d_D[dev], d_D[dev], M, ncclFloat, ncclSum, *(comms.get() + dev), blas_stream);
         }
@@ -313,7 +313,7 @@ int worker(int dev, int nccl_mode) {
         for (size_t i = 0; i < ITERATIONS; ++i) {
             if (nccl_mode != NO_COMPUTE) {
                 for (int temp = 0; temp < COMPUTE_TIME; ++temp)
-                    compute_func(dev, &handle);
+                    compute_func(dev, &handle, &blas_stream);
             }
 
 
@@ -390,7 +390,7 @@ int worker_with_wait(int dev, int nccl_mode) {
 
     for (size_t i = 0; i < ITERATIONS; ++i) {
         for (int temp = 0; temp < COMPUTE_TIME; ++temp){
-            compute_func(dev, &handle);
+            compute_func(dev, &handle, &blas_stream);
         }
         cudaEventRecord(compute_events[i], blas_stream);
         if(i > 0) cudaStreamWaitEvent(nccl_stream, compute_events[i - 1], 0);
