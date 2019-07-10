@@ -199,10 +199,10 @@ int prerun(int dev = 0) {
         cudaEventElapsedTime(&temp_time, start_event, stop_event);
         comm_time += temp_time;
     }
-    if(dev == 0)
+    if (dev == 0)
         fprintf(stderr, "compute kernel time %fms\ncomm kernel time %fms\nin theory\nall compute time %fms\nall comm time %fms\ncompute / comm %f\n\n",
-                compute_time / PRERUN_ITER, 
-                comm_time / PRERUN_ITER, 
+                compute_time / PRERUN_ITER,
+                comm_time / PRERUN_ITER,
                 compute_time / PRERUN_ITER * COMPUTE_TIME * ITERATIONS,
                 comm_time / PRERUN_ITER * COMM_TIME * ITERATIONS,
                 compute_time * COMPUTE_TIME / (comm_time * COMM_TIME));
