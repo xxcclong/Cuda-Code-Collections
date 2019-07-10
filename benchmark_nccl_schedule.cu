@@ -16,6 +16,7 @@
 
 // 1: element wise sqrt 2: element wise mul others: cublas gemm
 #define TEST_ALGO 2
+#define WAIT_EVENT
 
 /* Matrix size */
 #define N (32 * 4)
@@ -297,8 +298,6 @@ int worker(int dev, int nccl_mode) {
     cudaEventCreate(&start_event);
     cudaEventCreate(&stop_event);
 
-    std::vector<cudaEvent_t> nccl_events;
-    nccl_events.reserve(ITERATIONS);
     size_t start = timestamp();
     cudaEventRecord(start_event, 0);
     if (nccl_mode == NCCL_MODE::ONE_STREAM) {
@@ -359,9 +358,71 @@ int worker(int dev, int nccl_mode) {
     return 0;
 }
 
+int worker_with_wait(int dev, int nccl_mode) {
+    cublasStatus_t status;
+
+    cublasHandle_t handle;
+    auto& blas_stream = *(blas_streams.get() + dev);
+    cudaSetDevice(dev);
+
+    status = cublasCreate(&handle);
+
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "!!!! CUBLAS initialization error\n");
+        return EXIT_FAILURE;
+    }
+
+    cublasSetStream(handle, blas_stream);
+
+    /* Performs operation using cublas */
+    auto& nccl_stream = *(nccl_streams.get() + dev);
+    cudaEvent_t start_event, stop_event;
+    cudaEventCreate(&start_event);
+    cudaEventCreate(&stop_event);
+
+    std::vector<cudaEvent_t> compute_events;
+    compute_events.reserve(ITERATIONS);
+    for(int i = 0; i < ITERATIONS; ++i) {
+        cudaEventCreateWithFlags(&compute_events[i], cudaEventDisableTiming);
+    }
+    size_t start = timestamp();
+    cudaEventRecord(start_event, 0);
+
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        for (int temp = 0; temp < COMPUTE_TIME; ++temp){
+            compute_func(dev, &handle);
+        }
+        cudaEventRecord(compute_events[i], blas_stream);
+        if(i > 0) cudaStreamWaitEvent(nccl_stream, compute_events[i - 1], 0);
+        for (int temp = 0; temp < COMM_TIME; ++temp) {
+            ncclAllReduce(d_D[dev], d_D[dev], M, ncclFloat, ncclSum, *(comms.get() + dev), nccl_stream);
+        }
+    }
+    cudaEventRecord(stop_event, 0);
+    cudaEventSynchronize(stop_event);
+    float event_overall_time = 0;
+    cudaEventElapsedTime(&event_overall_time, start_event, stop_event);
+    fprintf(stderr, "[wait mode] device: [%d], %d iterations spent: cputime [%.2f ms] eventtime [%.2f ms] \n", dev, ITERATIONS, (timestamp() - start) / 1000.0, event_overall_time);
+
+
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "!!!! kernel execution error.\n");
+        return EXIT_FAILURE;
+    }
+
+    /* Shutdown */
+    status = cublasDestroy(handle);
+
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "!!!! shutdown error (A)\n");
+        return EXIT_FAILURE;
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     if (argc != 2) {
-        printf("USAGE: ./a.out 2 # 0 sync, 1 async, 2 one stream\n");
+        printf("USAGE: ./a.out 2 # 0 sync, 1 async, 2 one stream, 3 only compute, 4 only comm, 5 wait mode\n");
         return -1;
     }
 
@@ -382,12 +443,23 @@ int main(int argc, char** argv) {
         t.join();
     }
     size_t start = timestamp();
-    for (int i = 0; i < GPUS; ++i) {
-        std::thread t(std::bind(&worker, i, nccl_mode));
-        threads.push_back(std::move(t));
+    if(nccl_mode != 5){
+        for (int i = 0; i < GPUS; ++i) {
+            std::thread t(std::bind(&worker, i, nccl_mode));
+            threads.push_back(std::move(t));
+        }
+        for (auto& t : threads) {
+            t.join();
+        }
     }
-    for (auto& t : threads) {
-        t.join();
+    else {
+        for (int i = 0; i < GPUS; ++i) {
+            std::thread t(std::bind(&worker_with_wait, i, nccl_mode));
+            threads.push_back(std::move(t));
+        }
+        for (auto& t : threads) {
+            t.join();
+        }   
     }
     fprintf(stderr, "nccl mode: [%d], spent: [%.2f ms]\n", nccl_mode, (timestamp() - start) / 1000.0);
 
