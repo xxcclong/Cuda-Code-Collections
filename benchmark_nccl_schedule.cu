@@ -5,15 +5,20 @@
 #include <memory>
 #include <vector>
 #include <thread>
+#include <assert.h>
 
 /* Includes, cuda */
 #include <cublas_v2.h>
 #include <cuda_runtime_api.h>
 #include <nccl.h>
 
+
+#define TEST_ELEMENT_WISE_SQRT
 /* Matrix size */
 #define N (32 * 4)
 #define M (32 * 4)
+const int threads = 64;
+const int blocks = N / threads;
 #define GPUS (4)
 #define ITERATIONS (200)
 #define PRERUN_ITER (100)
@@ -156,6 +161,31 @@ int destroy_data(int dev) {
     return 0;
 }
 
+__global__ void eleSqrt(float *a, float* c)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    c[idx] += sqrtf(fabsf(a[idx]));
+}
+
+__global__ void eleMul(float *a, float* b, float* c)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    c[idx] += a[idx] * b[idx];
+}
+
+inline void compute_func(int dev, cublasHandle_t* handle)
+{
+#ifdef TEST_CUBLAS
+    cublasSgemm(*handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
+                             N, d_B[dev], N, &beta, d_C[dev], N);
+#elseif TEST_ELEMENT_WISE_SQRT
+    eleSqrt<<<blocks, threads>>>(d_A[dev], d_C[dev]);
+#elseif TEST_ELEMENT_WISE_MUL
+    eleMul<<<blocks, threads>>>(d_A[dev], d_B[dev], d_C[dev]);
+#else
+    assert(false);
+}
+
 int prerun(int dev = 0) {
     cublasStatus_t status;
     cublasHandle_t handle;
@@ -182,8 +212,7 @@ int prerun(int dev = 0) {
     // run computation
     for (int i = 0; i < PRERUN_ITER; ++i) {
         cudaEventRecord(start_event, 0);
-        status = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
-                             N, d_B[dev], N, &beta, d_C[dev], N);
+        compute_func(dev, &handle);
         cudaEventRecord(stop_event, 0);
         cudaEventSynchronize(stop_event);
         cudaEventElapsedTime(&temp_time, start_event, stop_event);
@@ -253,8 +282,7 @@ int worker(int dev, int nccl_mode) {
     if (nccl_mode == NCCL_MODE::ONE_STREAM) {
         for (size_t i = 0; i < ITERATIONS; ++i) {
             for (int temp = 0; temp < COMPUTE_TIME; ++temp)
-                status = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
-                                     N, d_B[dev], N, &beta, d_C[dev], N);
+                compute_func(dev, &handle);
             for (int temp = 0; temp < COMM_TIME; ++temp)
                 ncclAllReduce(d_D[dev], d_D[dev], M, ncclFloat, ncclSum, *(comms.get() + dev), blas_stream);
         }
@@ -264,8 +292,7 @@ int worker(int dev, int nccl_mode) {
         for (size_t i = 0; i < ITERATIONS; ++i) {
             if (nccl_mode != NO_COMPUTE) {
                 for (int temp = 0; temp < COMPUTE_TIME; ++temp)
-                    status = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
-                                         N, d_B[dev], N, &beta, d_C[dev], N);
+                    compute_func(dev, &handle);
             }
 
 
