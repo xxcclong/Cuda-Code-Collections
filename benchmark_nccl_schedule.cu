@@ -192,13 +192,14 @@ int prerun(int dev = 0) {
     // run comm
     cudaEventRecord(start_event, 0);
     for (int i = 0; i < PRERUN_ITER; ++i) {
-        ncclAllReduce(d_D[dev], d_D[dev], M, ncclFloat, ncclSum, *(comms.get() + dev), blas_stream);
+        ncclAllReduce(d_D[dev], d_D[dev], M, ncclFloat, ncclSum, *(comms.get() + dev), nccl_stream);
     }
     cudaEventRecord(stop_event, 0);
     cudaEventSynchronize(stop_event);
     cudaEventElapsedTime(&comm_time, start_event, stop_event);
-    fprintf(stderr, "compute kernel time %f\ncomm kernel time %f\nin theory all_compute / all_comm %f\n\n",
-            compute_time / PRERUN_ITER, comm_time / PRERUN_ITER, compute_time * COMPUTE_TIME / (comm_time * COMM_TIME));
+    if(dev == 0)
+        fprintf(stderr, "compute kernel time %f\ncomm kernel time %f\nin theory all_compute / all_comm %f\n\n",
+                compute_time / PRERUN_ITER, comm_time / PRERUN_ITER, compute_time * COMPUTE_TIME / (comm_time * COMM_TIME));
 
     if (status != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "!!!! kernel execution error.\n");
@@ -316,7 +317,13 @@ int main(int argc, char** argv) {
     std::vector<std::thread> threads;
     int nccl_mode = atoi(argv[1]);
     printf("nccl mode %d\n", nccl_mode);
-    prerun();
+    for (int i = 0; i < GPUS; ++i) {
+        std::thread t(std::bind(&prerun, i));
+        threads.push_back(std::move(t));
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
     size_t start = timestamp();
     for (int i = 0; i < GPUS; ++i) {
         std::thread t(std::bind(&worker, i, nccl_mode));
