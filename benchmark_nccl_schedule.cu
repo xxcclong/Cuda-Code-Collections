@@ -6,14 +6,16 @@
 #include <vector>
 #include <thread>
 #include <assert.h>
+#include <functional>
 
 /* Includes, cuda */
 #include <cublas_v2.h>
-#include <cuda_runtime_api.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <nccl.h>
 
 
-#define TEST_ELEMENT_WISE_SQRT
+#define TEST_ALGO 2
 /* Matrix size */
 #define N (32 * 4)
 #define M (32 * 4)
@@ -175,17 +177,34 @@ __global__ void eleMul(float *a, float* b, float* c)
     c[idx] += a[idx] * b[idx];
 }
 
+
+inline void print_compute_func()
+{
+#ifndef TEST_ALGO
+    fprintf(stderr, "algo: cublasSgemm\n");
+#elif TEST_ALGO == 1 
+    fprintf(stderr, "algo: Sqrt\n");
+#elif TEST_ALGO == 2 
+    fprintf(stderr, "algo: Element Wise Mul\n");
+#else
+    fprintf(stderr, "algo: cublasSgemm\n");
+#endif
+}
+
+
 inline void compute_func(int dev, cublasHandle_t* handle)
 {
-#ifdef TEST_CUBLAS
+#ifndef TEST_ALGO
     cublasSgemm(*handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
                              N, d_B[dev], N, &beta, d_C[dev], N);
-#elseif TEST_ELEMENT_WISE_SQRT
+#elif TEST_ALGO == 1 
     eleSqrt<<<cuda_grid, cuda_threads>>>(d_A[dev], d_C[dev]);
-#elseif TEST_ELEMENT_WISE_MUL
+#elif TEST_ALGO == 2 
     eleMul<<<cuda_grid, cuda_threads>>>(d_A[dev], d_B[dev], d_C[dev]);
 #else
-    assert(false);
+    cublasSgemm(*handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
+                             N, d_B[dev], N, &beta, d_C[dev], N);
+#endif
 }
 
 int prerun(int dev = 0) {
@@ -353,6 +372,7 @@ int main(int argc, char** argv) {
     std::vector<std::thread> prerun_threads;
     int nccl_mode = atoi(argv[1]);
     printf("nccl mode %d\n", nccl_mode);
+    print_compute_func();
     for (int i = 0; i < GPUS; ++i) {
         std::thread t(std::bind(&prerun, i));
         prerun_threads.push_back(std::move(t));
