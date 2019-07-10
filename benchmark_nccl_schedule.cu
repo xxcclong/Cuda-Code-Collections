@@ -175,28 +175,30 @@ int prerun(int dev = 0) {
     /* Performs operation using cublas */
     auto& nccl_stream = *(nccl_streams.get() + dev);
     cudaEvent_t start_event, stop_event;
-    float compute_time = 0, comm_time;
+    float compute_time = 0, comm_time = 0, temp_time = 0;
     cudaEventCreate(&start_event);
     cudaEventCreate(&stop_event);
 
     // run computation
-    cudaEventRecord(start_event, 0);
     for (int i = 0; i < PRERUN_ITER; ++i) {
+        cudaEventRecord(start_event, 0);
         status = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
                              N, d_B[dev], N, &beta, d_C[dev], N);
+        cudaEventRecord(stop_event, 0);
+        cudaEventSynchronize(stop_event);
+        cudaEventElapsedTime(&temp_time, start_event, stop_event);
+        compute_time += temp_time;
     }
-    cudaEventRecord(stop_event, 0);
-    cudaEventSynchronize(stop_event);
-    cudaEventElapsedTime(&compute_time, start_event, stop_event);
 
     // run comm
-    cudaEventRecord(start_event, 0);
     for (int i = 0; i < PRERUN_ITER; ++i) {
+        cudaEventRecord(start_event, 0);
         ncclAllReduce(d_D[dev], d_D[dev], M, ncclFloat, ncclSum, *(comms.get() + dev), nccl_stream);
+        cudaEventRecord(stop_event, 0);
+        cudaEventSynchronize(stop_event);
+        cudaEventElapsedTime(&temp_time, start_event, stop_event);
+        comm_time += temp_time;
     }
-    cudaEventRecord(stop_event, 0);
-    cudaEventSynchronize(stop_event);
-    cudaEventElapsedTime(&comm_time, start_event, stop_event);
     if(dev == 0)
         fprintf(stderr, "compute kernel time %fms\ncomm kernel time %fms\nin theory all compute time %fms\nall comm time %fms\ncompute / comm %f\n\n",
                 compute_time / PRERUN_ITER, 
