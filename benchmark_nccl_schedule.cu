@@ -12,11 +12,11 @@
 #include <nccl.h>
 
 /* Matrix size */
-#define N (32 * 4)
+#define N (256 * 4)
 #define M (32 * 4)
 #define GPUS (4)
 #define ITERATIONS (200)
-#define PRERUN_ITER (20)
+#define PRERUN_ITER (100)
 #define COMPUTE_TIME 20
 #define COMM_TIME 1
 //float *h_C_ref;
@@ -198,8 +198,12 @@ int prerun(int dev = 0) {
     cudaEventSynchronize(stop_event);
     cudaEventElapsedTime(&comm_time, start_event, stop_event);
     if(dev == 0)
-        fprintf(stderr, "compute kernel time %f\ncomm kernel time %f\nin theory all_compute / all_comm %f\n\n",
-                compute_time / PRERUN_ITER, comm_time / PRERUN_ITER, compute_time * COMPUTE_TIME / (comm_time * COMM_TIME));
+        fprintf(stderr, "compute kernel time %fms\ncomm kernel time %fms\nin theory all compute time %fms\nall comm time %fms\ncompute / comm %f\n\n",
+                compute_time / PRERUN_ITER, 
+                comm_time / PRERUN_ITER, 
+                compute_time / PRERUN_ITER * COMPUTE_TIME * ITERATIONS,
+                comm_time / PRERUN_ITER * COMM_TIME * ITERATIONS,
+                compute_time * COMPUTE_TIME / (comm_time * COMM_TIME));
 
     if (status != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "!!!! kernel execution error.\n");
