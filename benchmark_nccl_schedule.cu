@@ -17,8 +17,10 @@
 /* Matrix size */
 #define N (32 * 4)
 #define M (32 * 4)
-const int threads = 64;
-const int blocks = N / threads;
+
+dim3 cuda_threads(64);
+dim3 cuda_grid(N / 64);
+
 #define GPUS (4)
 #define ITERATIONS (200)
 #define PRERUN_ITER (100)
@@ -179,9 +181,9 @@ inline void compute_func(int dev, cublasHandle_t* handle)
     cublasSgemm(*handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A[dev],
                              N, d_B[dev], N, &beta, d_C[dev], N);
 #elseif TEST_ELEMENT_WISE_SQRT
-    eleSqrt<<<blocks, threads>>>(d_A[dev], d_C[dev]);
+    eleSqrt<<<cuda_grid, cuda_threads>>>(d_A[dev], d_C[dev]);
 #elseif TEST_ELEMENT_WISE_MUL
-    eleMul<<<blocks, threads>>>(d_A[dev], d_B[dev], d_C[dev]);
+    eleMul<<<cuda_grid, cuda_threads>>>(d_A[dev], d_B[dev], d_C[dev]);
 #else
     assert(false);
 }
