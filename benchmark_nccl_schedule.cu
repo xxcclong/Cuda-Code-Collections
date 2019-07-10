@@ -14,7 +14,7 @@
 #include <cuda_runtime.h>
 #include <nccl.h>
 
-// 1: element wise sqrt 2: element wise mul others: cublas mat mul
+// 1: element wise sqrt 2: element wise mul others: cublas gemm
 #define TEST_ALGO 2
 
 /* Matrix size */
