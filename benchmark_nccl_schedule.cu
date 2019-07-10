@@ -315,13 +315,14 @@ int main(int argc, char** argv) {
         init_data(i);
     }
     std::vector<std::thread> threads;
+    std::vector<std::thread> prerun_threads;
     int nccl_mode = atoi(argv[1]);
     printf("nccl mode %d\n", nccl_mode);
     for (int i = 0; i < GPUS; ++i) {
         std::thread t(std::bind(&prerun, i));
-        threads.push_back(std::move(t));
+        prerun_threads.push_back(std::move(t));
     }
-    for (auto& t : threads) {
+    for (auto& t : prerun_threads) {
         t.join();
     }
     size_t start = timestamp();
