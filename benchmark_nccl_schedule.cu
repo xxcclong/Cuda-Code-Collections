@@ -314,9 +314,9 @@ int main(int argc, char** argv) {
         init_data(i);
     }
     std::vector<std::thread> threads;
+    int nccl_mode = atoi(argv[1]);
     printf("nccl mode %d\n", nccl_mode);
     prerun();
-    int nccl_mode = atoi(argv[1]);
     size_t start = timestamp();
     for (int i = 0; i < GPUS; ++i) {
         std::thread t(std::bind(&worker, i, nccl_mode));
