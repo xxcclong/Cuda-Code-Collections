@@ -12,7 +12,7 @@
 #include <nccl.h>
 
 /* Matrix size */
-#define N (256 * 4)
+#define N (32 * 4)
 #define M (32 * 4)
 #define GPUS (4)
 #define ITERATIONS (200)
@@ -200,7 +200,7 @@ int prerun(int dev = 0) {
         comm_time += temp_time;
     }
     if(dev == 0)
-        fprintf(stderr, "compute kernel time %fms\ncomm kernel time %fms\nin theory all compute time %fms\nall comm time %fms\ncompute / comm %f\n\n",
+        fprintf(stderr, "compute kernel time %fms\ncomm kernel time %fms\nin theory\nall compute time %fms\nall comm time %fms\ncompute / comm %f\n\n",
                 compute_time / PRERUN_ITER, 
                 comm_time / PRERUN_ITER, 
                 compute_time / PRERUN_ITER * COMPUTE_TIME * ITERATIONS,
